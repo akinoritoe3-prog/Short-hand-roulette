@@ -1,1 +1,508 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>時計の短針ルーレット</title>
+  <!-- Tailwind CSS の読み込み -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 数字と日本語が美しく表示されるフォントの読み込み -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    /* 全体のフォント設定とタップ時のハイライト抑制 */
+    body {
+      font-family: 'Inter', 'Noto Sans JP', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
 
+    /* 時計ベゼルのクリーンな立体感 */
+    .clock-bezel {
+      box-shadow:
+        0 24px 48px -16px rgba(15, 23, 42, 0.14),
+        0 4px 14px -2px rgba(15, 23, 42, 0.05),
+        inset 0 2px 4px rgba(255, 255, 255, 0.95);
+    }
+
+    /* 結果表示のスムーズな出現アニメーション */
+    @keyframes resultReveal {
+      0% {
+        opacity: 0;
+        transform: translateY(5px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .result-reveal {
+      animation: resultReveal 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    /* 数字の等幅表示で角度や時刻の視認性を高める */
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-slate-50 via-slate-100/70 to-slate-200/60 text-slate-800 flex flex-col items-center justify-center p-4 sm:p-6 select-none">
+
+  <!-- メインカード -->
+  <main class="w-full max-w-md bg-white/95 backdrop-blur-md rounded-3xl shadow-xl shadow-slate-900/5 border border-slate-200/80 p-6 sm:p-8 flex flex-col items-center">
+
+    <!-- ヘッダー -->
+    <header class="text-center mb-5 sm:mb-6">
+      <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-800">
+        短針ルーレット
+      </h1>
+      <p class="text-xs sm:text-sm text-slate-500 mt-1">
+        無段階の任意位置で停止する精密短針モデル
+      </p>
+    </header>
+
+    <!-- 時計の文字盤コンテナ（レスポンシブ正方形） -->
+    <div class="relative w-full max-w-[330px] aspect-square flex items-center justify-center mb-6">
+      <!-- 外枠ベゼル -->
+      <div class="w-full h-full rounded-full bg-white p-2.5 sm:p-3 clock-bezel border border-slate-200/90 flex items-center justify-center">
+        <!-- SVG時計本体 -->
+        <svg id="clockSvg" viewBox="0 0 400 400" class="w-full h-full overflow-visible" role="img" aria-label="360分割の細かい目盛りと短針のみが描かれた時計">
+          <defs>
+            <!-- 文字盤の繊細なグラデーション -->
+            <radialGradient id="dialGradient" cx="50%" cy="42%" r="58%">
+              <stop offset="0%" stop-color="#ffffff" />
+              <stop offset="82%" stop-color="#f8fafc" />
+              <stop offset="100%" stop-color="#f1f5f9" />
+            </radialGradient>
+
+            <!-- 短針用のドロップシャドウ -->
+            <filter id="handShadow" x="-30%" y="-30%" width="160%" height="160%">
+              <feDropShadow dx="0" dy="3.5" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.2" />
+            </filter>
+          </defs>
+
+          <!-- 文字盤ベース円 -->
+          <circle cx="200" cy="200" r="192" fill="url(#dialGradient)" stroke="#e2e8f0" stroke-width="1.5" />
+          <!-- 目盛り外周の繊細なガイドリング -->
+          <circle cx="200" cy="200" r="184" fill="none" stroke="#e2e8f0" stroke-width="0.8" />
+
+          <!-- 目盛り描画グループ（JSで360分割生成） -->
+          <g id="ticksGroup"></g>
+
+          <!-- 1〜12の数字描画グループ（JSで生成） -->
+          <g id="numbersGroup"></g>
+
+          <!-- 短針グループ（12時方向＝上向きを0度として描画し、中心(200,200)を軸に回転） -->
+          <g id="hourHand" filter="url(#handShadow)">
+            <!-- 細かい目盛りを正確に読み取るための極細ガイドライン（先端から目盛り外周付近まで） -->
+            <line
+              x1="200" y1="92"
+              x2="200" y2="21"
+              stroke="#4f46e5"
+              stroke-width="1.25"
+              stroke-linecap="round"
+              opacity="0.85"
+            />
+            <!-- 目盛り先端の微細なポインター点 -->
+            <circle cx="200" cy="21" r="2" fill="#4f46e5" />
+
+            <!-- 短針本体（シャープに尖ったモダンなドルフィン型シルエット） -->
+            <!-- 中心(200,200)から上方(y=88)へ伸び、下側(y=226)にカウンターウェイト -->
+            <path
+              d="M 194.5 226 L 195.5 112 L 200 84 L 204.5 112 L 205.5 226 Z"
+              fill="#1e293b"
+              stroke="#0f172a"
+              stroke-width="0.8"
+              stroke-linejoin="round"
+            />
+
+            <!-- 短針の中央アクセントライン -->
+            <line
+              x1="200" y1="94"
+              x2="200" y2="176"
+              stroke="#ffffff"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              opacity="0.85"
+            />
+          </g>
+
+          <!-- 中央の軸キャップ -->
+          <circle cx="200" cy="200" r="11" fill="#1e293b" />
+          <circle cx="200" cy="200" r="5" fill="#4f46e5" />
+          <circle cx="200" cy="200" r="2" fill="#ffffff" />
+        </svg>
+      </div>
+    </div>
+
+    <!-- 結果・ステータス表示エリア（高さ固定でレイアウトのズレを防止） -->
+    <div id="statusBox" class="w-full min-h-[5.5rem] rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col items-center justify-center mb-6 px-4 py-3 transition-colors duration-300">
+      <div id="statusContent" class="text-center text-slate-500 font-medium text-sm sm:text-base">
+        スタートボタンを押してください
+      </div>
+    </div>
+
+    <!-- 操作ボタンエリア（スタート・ストップの2つのみ） -->
+    <div class="w-full grid grid-cols-2 gap-3 sm:gap-4">
+      <button
+        id="startBtn"
+        type="button"
+        class="py-3.5 px-5 rounded-2xl font-bold text-base sm:text-lg text-white bg-slate-900 hover:bg-slate-800 active:scale-[0.98] shadow-md shadow-slate-900/15 transition-all duration-150 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-slate-900 disabled:active:scale-100 focus:outline-none focus:ring-2 focus:ring-slate-700 focus:ring-offset-2"
+      >
+        スタート
+      </button>
+      <button
+        id="stopBtn"
+        type="button"
+        disabled
+        class="py-3.5 px-5 rounded-2xl font-bold text-base sm:text-lg text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] shadow-md shadow-indigo-600/20 transition-all duration-150 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-indigo-600 disabled:active:scale-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+      >
+        ストップ
+      </button>
+    </div>
+
+  </main>
+
+  <script>
+    /**
+     * 時計の短針ルーレット（無段階停止・精密目盛り版）
+     */
+    (function () {
+      'use strict';
+
+      const SVG_NS = 'http://www.w3.org/2000/svg';
+
+      // DOM要素
+      const ticksGroup = document.getElementById('ticksGroup');
+      const numbersGroup = document.getElementById('numbersGroup');
+      const hourHand = document.getElementById('hourHand');
+      const startBtn = document.getElementById('startBtn');
+      const stopBtn = document.getElementById('stopBtn');
+      const statusBox = document.getElementById('statusBox');
+      const statusContent = document.getElementById('statusContent');
+
+      // アプリケーションの状態
+      const STATE = {
+        IDLE: 'IDLE',
+        SPINNING: 'SPINNING',
+        DECELERATING: 'DECELERATING'
+      };
+
+      let currentState = STATE.IDLE;
+      let animationFrameId = null;
+
+      // 角度・速度パラメータ（12時 = 0度、時計回りに増加）
+      let currentAngle = 0;           // 現在の角度（浮動小数点の連続値）
+      let angularVelocity = 0;        // 現在の角速度（度 / 秒）
+      const MAX_VELOCITY = 960;       // 最高速度（度 / 秒：約2.67回転/秒）
+      const ACCELERATION = 2400;      // スタート時の加速度（度 / 秒^2）
+
+      // 減速アニメーション用の状態変数
+      let decelStartTime = 0;
+      let decelDuration = 3000;       // 減速時間（ms：約2.5〜4.0秒）
+      let decelStartAngle = 0;
+      let decelTotalRotation = 0;
+
+      // フレーム間の経過時間計算用
+      let lastTimestamp = 0;
+
+      /**
+       * 文字盤の目盛り（360分割）と数字（1〜12）を生成する
+       * - 1時間ごと（12個 / 30°間隔）：太く長い主目盛り
+       * - 5分割ごと（60個 / 6°間隔）：中目盛り（通常時計の1分位置）
+       * - 1度ごと（360個 / 1°間隔＝短針の2分相当）：繊細な極細補助目盛り
+       */
+      function buildClockFace() {
+        const cx = 200;
+        const cy = 200;
+        const outerR = 184;
+
+        // 1. 360分割の目盛り生成
+        for (let deg = 0; deg < 360; deg++) {
+          const isHourTick = deg % 30 === 0;   // 12個（30°ごと）
+          const isMinuteTick = deg % 6 === 0;  // 60個（6°ごと）
+
+          let innerR, strokeColor, strokeWidth;
+
+          if (isHourTick) {
+            innerR = 164;
+            strokeColor = '#1e293b';
+            strokeWidth = '2.8';
+          } else if (isMinuteTick) {
+            innerR = 172;
+            strokeColor = '#64748b';
+            strokeWidth = '1.4';
+          } else {
+            innerR = 178;
+            strokeColor = '#cbd5e1';
+            strokeWidth = '0.75';
+          }
+
+          const angleRad = (deg - 90) * (Math.PI / 180);
+          const x1 = cx + outerR * Math.cos(angleRad);
+          const y1 = cy + outerR * Math.sin(angleRad);
+          const x2 = cx + innerR * Math.cos(angleRad);
+          const y2 = cy + innerR * Math.sin(angleRad);
+
+          const tick = document.createElementNS(SVG_NS, 'line');
+          tick.setAttribute('x1', x1.toFixed(2));
+          tick.setAttribute('y1', y1.toFixed(2));
+          tick.setAttribute('x2', x2.toFixed(2));
+          tick.setAttribute('y2', y2.toFixed(2));
+          tick.setAttribute('stroke', strokeColor);
+          tick.setAttribute('stroke-width', strokeWidth);
+          tick.setAttribute('stroke-linecap', isHourTick ? 'round' : 'butt');
+
+          ticksGroup.appendChild(tick);
+        }
+
+        // 2. 1〜12の数字を配置
+        const numberRadius = 140;
+        for (let num = 1; num <= 12; num++) {
+          const angleRad = (num * 30 - 90) * (Math.PI / 180);
+          const x = cx + numberRadius * Math.cos(angleRad);
+          const y = cy + numberRadius * Math.sin(angleRad);
+
+          const text = document.createElementNS(SVG_NS, 'text');
+          text.setAttribute('x', x.toFixed(2));
+          text.setAttribute('y', y.toFixed(2));
+          text.setAttribute('text-anchor', 'middle');
+          text.setAttribute('dominant-baseline', 'central');
+          text.setAttribute('fill', '#1e293b');
+          text.setAttribute('font-size', '23');
+          text.setAttribute('font-weight', '700');
+          text.textContent = String(num);
+
+          numbersGroup.appendChild(text);
+        }
+      }
+
+      /**
+       * 短針の角度をSVGに反映する（スナップなし・完全連続値）
+       * @param {number} angleDeg
+       */
+      function updateHandRotation(angleDeg) {
+        hourHand.setAttribute('transform', `rotate(${angleDeg}, 200, 200)`);
+      }
+
+      /**
+       * 角度（0〜360度）から正確な時刻情報と表示用テキストを算出する
+       * 短針は1周(360°) = 12時間 = 720分 = 43,200秒
+       * - 1時間 = 30°
+       * - 1分 = 0.5°
+       * - 1秒 = 1/120°
+       * @param {number} angleDeg
+       */
+      function parseAngleToClockTime(angleDeg) {
+        const normalized = ((angleDeg % 360) + 360) % 360;
+
+        // 総秒数へ変換（43200秒に達した場合は0秒に丸める）
+        let totalSeconds = Math.round((normalized / 360) * 43200);
+        if (totalSeconds >= 43200) {
+          totalSeconds = 0;
+        }
+
+        const rawHours = Math.floor(totalSeconds / 3600);
+        const displayHour = rawHours === 0 ? 12 : rawHours;
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        const pad2 = (n) => String(n).padStart(2, '0');
+
+        return {
+          hour: displayHour,
+          minute: minutes,
+          second: seconds,
+          angleFormatted: normalized.toFixed(1),
+          timeShort: `${displayHour}時${pad2(minutes)}分`,
+          timeFull: `${displayHour}:${pad2(minutes)}:${pad2(seconds)}`
+        };
+      }
+
+      /**
+       * ステータス・結果表示エリアを更新する
+       * @param {'idle'|'spinning'|'decelerating'|'result'} mode
+       * @param {object} [timeInfo]
+       */
+      function updateStatusUI(mode, timeInfo) {
+        statusBox.classList.remove(
+          'bg-slate-50', 'border-slate-200/80',
+          'bg-indigo-50/70', 'border-indigo-200'
+        );
+
+        if (mode === 'spinning') {
+          statusBox.classList.add('bg-slate-50', 'border-slate-200/80');
+          statusContent.innerHTML = `
+            <div class="inline-flex items-center gap-2.5 text-slate-700 font-semibold text-sm sm:text-base">
+              <span class="relative flex h-2.5 w-2.5">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-600"></span>
+              </span>
+              回転中...
+            </div>
+          `;
+        } else if (mode === 'decelerating') {
+          statusBox.classList.add('bg-slate-50', 'border-slate-200/80');
+          statusContent.innerHTML = `
+            <div class="inline-flex items-center gap-2.5 text-amber-600 font-semibold text-sm sm:text-base">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+              減速中...
+            </div>
+          `;
+        } else if (mode === 'result' && timeInfo) {
+          statusBox.classList.add('bg-indigo-50/70', 'border-indigo-200');
+          statusContent.innerHTML = `
+            <div class="result-reveal flex flex-col items-center">
+              <div class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 tabular-nums">
+                ${timeInfo.timeShort}
+              </div>
+              <div class="mt-1 text-xs sm:text-sm font-medium text-indigo-700/90 tabular-nums">
+                角度: ${timeInfo.angleFormatted}° &nbsp;/&nbsp; ${timeInfo.timeFull}
+              </div>
+            </div>
+          `;
+        } else {
+          statusBox.classList.add('bg-slate-50', 'border-slate-200/80');
+          statusContent.innerHTML = `
+            <span class="text-slate-500 text-sm sm:text-base font-medium">
+              スタートボタンを押してください
+            </span>
+          `;
+        }
+      }
+
+      /**
+       * メインアニメーションループ（requestAnimationFrame）
+       * @param {DOMHighResTimeStamp} timestamp
+       */
+      function animate(timestamp) {
+        if (!lastTimestamp) {
+          lastTimestamp = timestamp;
+        }
+        // フレーム経過時間（秒）。非アクティブタブ復帰時の急激な飛びを防止
+        const dt = Math.min((timestamp - lastTimestamp) / 1000, 0.05);
+        lastTimestamp = timestamp;
+
+        if (currentState === STATE.SPINNING) {
+          // 最高速度まで滑らかに加速し、以降は等速で回転
+          if (angularVelocity < MAX_VELOCITY) {
+            angularVelocity = Math.min(MAX_VELOCITY, angularVelocity + ACCELERATION * dt);
+          }
+          currentAngle += angularVelocity * dt;
+          updateHandRotation(currentAngle);
+
+          animationFrameId = requestAnimationFrame(animate);
+        } else if (currentState === STATE.DECELERATING) {
+          const elapsed = timestamp - decelStartTime;
+          const progress = Math.min(elapsed / decelDuration, 1);
+
+          // Cubic Ease-Out: f(t) = 1 - (1 - t)^3
+          // t=0 の微分係数が 3 のため、totalRotation = (v0 * T) / 3 とすることで
+          // ストップ押下時の角速度から継ぎ目なく自然に減速し、任意の連続角度で停止する
+          const eased = 1 - Math.pow(1 - progress, 3);
+          currentAngle = decelStartAngle + decelTotalRotation * eased;
+          updateHandRotation(currentAngle);
+
+          if (progress < 1) {
+            animationFrameId = requestAnimationFrame(animate);
+          } else {
+            finishRoulette();
+          }
+        }
+      }
+
+      /**
+       * ルーレット完全停止時の処理
+       * 角度は一切スナップせず、そのままの連続値から時刻と角度を算出する
+       */
+      function finishRoulette() {
+        currentState = STATE.IDLE;
+        angularVelocity = 0;
+        animationFrameId = null;
+
+        // 浮動小数点の精度を保ったまま 0〜360 度の範囲へ正規化
+        currentAngle = ((currentAngle % 360) + 360) % 360;
+        updateHandRotation(currentAngle);
+
+        // 正確な時刻・角度を算出して表示
+        const timeInfo = parseAngleToClockTime(currentAngle);
+        updateStatusUI('result', timeInfo);
+
+        // ボタン状態を戻す
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      }
+
+      /**
+       * スタートボタン押下処理
+       */
+      function handleStart() {
+        if (currentState !== STATE.IDLE) return;
+
+        currentState = STATE.SPINNING;
+        angularVelocity = 220; // 押し心地の良い初速
+        lastTimestamp = 0;
+
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        updateStatusUI('spinning');
+
+        animationFrameId = requestAnimationFrame(animate);
+      }
+
+      /**
+       * ストップボタン押下処理
+       * ストップ瞬間の速度を引き継ぎつつ、0〜360°の完全な連続乱数を組み込んで
+       * 約2.5〜4.0秒かけて無段階の任意位置へ滑らかに停止させる
+       */
+      function handleStop() {
+        if (currentState !== STATE.SPINNING) return;
+
+        currentState = STATE.DECELERATING;
+
+        // 減速完了まで両ボタンを無効化
+        startBtn.disabled = true;
+        stopBtn.disabled = true;
+        updateStatusUI('decelerating');
+
+        // スタート直後にすぐストップされた場合でも十分な惰性回転になるよう最低速度を保証
+        const v0 = Math.max(angularVelocity, 620);
+
+        // 基準の減速時間（2.5〜2.8秒の連続値）＋ 0〜360度の完全な連続ランダム回転角
+        // これにより初速の連続性を保ちつつ、どの角度にも均等に停止する
+        const baseDurationSec = 2.5 + Math.random() * 0.3;
+        const randomExtraAngle = Math.random() * 360;
+
+        const baseRotation = (v0 * baseDurationSec) / 3;
+        decelTotalRotation = baseRotation + randomExtraAngle;
+
+        // 初速一致条件 T = (3 * totalRotation) / v0 より正確な減速時間を算出（約2.5〜4.0秒）
+        const computedDurationSec = Math.min((3 * decelTotalRotation) / v0, 4.0);
+        decelDuration = computedDurationSec * 1000;
+
+        decelStartTime = performance.now();
+        decelStartAngle = currentAngle;
+      }
+
+      /**
+       * アプリケーション初期化
+       */
+      function init() {
+        try {
+          buildClockFace();
+          updateHandRotation(currentAngle);
+          updateStatusUI('idle');
+
+          startBtn.addEventListener('click', handleStart);
+          stopBtn.addEventListener('click', handleStop);
+        } catch (error) {
+          console.error('初期化エラー:', error);
+        }
+      }
+
+      window.addEventListener('DOMContentLoaded', init);
+    })();
+  </script>
+</body>
+</html>
